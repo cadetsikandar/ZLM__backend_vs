@@ -1,0 +1,437 @@
+// Prisma Schema — ZLM NP/DNP Textbook Automation System
+// PostgreSQL 16 | Prisma 5 | All Phases 1-7
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum CertificationTrack {
+  // Nursing
+  RN
+  LPN
+  FNP
+  AGPCNP
+  PMHNP
+  PNP
+  WHNP
+  NNP
+  AGACNP
+  CRNA
+  CNM
+  CNS
+  ANP
+  // Medicine
+  MD
+  DO
+  // Physician Assistant
+  PA
+  // Pharmacy
+  PHARMD
+  // Dentistry
+  DDS
+  RDH
+  // Behavioral Health
+  PSYCHD
+  LCSW
+  LPC
+  LMFT
+  BCBA
+  SAC
+  // Allied Health
+  DPT
+  OT
+  PTA
+  RRT
+  RADTECH
+  MLS
+  SLP
+  RD
+  // Specialty Nursing
+  CCRN
+  CEN
+  OCN
+  // Admin / Public Health
+  FACHE
+  CPH
+  CPC
+}
+
+enum BundleType {
+  TEXTBOOK
+  REVIEW
+  MNEMONIC
+  PICTURE
+  STUDYSHEET
+  QBANK
+}
+
+enum BookStatus {
+  DRAFT
+  GENERATING
+  QA_PENDING
+  QA_IN_PROGRESS
+  QA_PASSED
+  DESIGN_PENDING
+  DESIGN_READY
+  KDP_READY
+  PUBLISHED
+}
+
+enum ChapterStatus {
+  PENDING
+  GENERATING
+  GENERATED
+  QA_PENDING
+  QA_PASSED
+  QA_FAILED
+  DESIGN_READY
+}
+
+enum PromptType {
+  TOC
+  TERMINOLOGY
+  CHAPTER
+  PEARL
+  REFERENCE
+  QA
+}
+
+enum UserRole {
+  ADMIN
+  CONTENT_MANAGER
+  QA_REVIEWER
+  DESIGNER
+}
+
+enum JobStatus {
+  WAITING
+  ACTIVE
+  COMPLETED
+  FAILED
+  DELAYED
+}
+
+// ─────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  role         UserRole  @default(CONTENT_MANAGER)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  auditLogs     AuditLog[]
+  refreshTokens RefreshToken[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────────
+// BOOKS
+// ─────────────────────────────────────────────
+
+model Book {
+  id                  String             @id @default(uuid())
+  title               String
+  subtitle            String?
+  certificationTrack  CertificationTrack
+  trackNumber         Int
+  bundleType          BundleType         @default(TEXTBOOK)
+  country             String             @default("USA")
+  boardExam           String?
+  status              BookStatus         @default(DRAFT)
+  githubBranch        String?
+  s3Folder            String?
+  airtableRecordId    String?
+  totalChapters       Int                @default(0)
+  completedChapters   Int                @default(0)
+  overallQaScore      Decimal?           @db.Decimal(5, 2)
+  kdpTitle            String?
+  kdpSubtitle         String?
+  kdpDescription      String?            @db.Text
+  kdpKeywords         String[]
+  kdpBisacCodes       String[]
+  kdpMetadata         String?            @db.Text
+  seoTitle            String?
+  brandingColor       String?
+  lastReviewedAt      DateTime?
+  needsUpdate         Boolean            @default(false)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  chapters       Chapter[]
+  jobs           Job[]
+  auditLogs      AuditLog[]
+  questionBanks  QuestionBank[]
+  mnemonicEntries MnemonicEntry[]
+
+  @@index([status])
+  @@index([certificationTrack])
+  @@index([bundleType])
+  @@index([country])
+  @@map("books")
+}
+
+// ─────────────────────────────────────────────
+// CHAPTERS
+// ─────────────────────────────────────────────
+
+model Chapter {
+  id              String        @id @default(uuid())
+  bookId          String
+  chapterNumber   Int
+  title           String
+  wordCount       Int           @default(0)
+  status          ChapterStatus @default(PENDING)
+  contentS3Key    String?
+  githubCommitSha String?
+  qaScore         Decimal?      @db.Decimal(5, 2)
+  promptVersion   Int           @default(1)
+  retryCount      Int           @default(0)
+  reviewContent   String?       @db.Text
+  editorFlags     String?       @db.Text
+  hasEditorIssues Boolean       @default(false)
+  generatedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  book      Book        @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  qaReports QaReport[]
+
+  @@unique([bookId, chapterNumber])
+  @@index([bookId])
+  @@index([status])
+  @@map("chapters")
+}
+
+// ─────────────────────────────────────────────
+// QA REPORTS
+// ─────────────────────────────────────────────
+
+model QaReport {
+  id                   String   @id @default(uuid())
+  chapterId            String
+  apaViolations        Json     @default("[]")
+  boldGovernanceIssues Json     @default("[]")
+  redundancyFlags      Json     @default("[]")
+  medicationErrors     Json     @default("[]")
+  structureIssues      Json     @default("[]")
+  depthScore           Decimal? @db.Decimal(5, 2)
+  citationCount        Int      @default(0)
+  recentCitations      Int      @default(0)
+  overallScore         Decimal? @db.Decimal(5, 2)
+  passed               Boolean  @default(false)
+  rawQaResponse        String?  @db.Text
+  strictMode           Boolean  @default(true)
+  createdAt            DateTime @default(now())
+
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([chapterId])
+  @@index([passed])
+  @@map("qa_reports")
+}
+
+// ─────────────────────────────────────────────
+// PROMPTS
+// ─────────────────────────────────────────────
+
+model Prompt {
+  id        String     @id @default(uuid())
+  name      String
+  type      PromptType
+  content   String     @db.Text
+  version   Int        @default(1)
+  isActive  Boolean    @default(true)
+  createdBy String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+  @@map("prompts")
+}
+
+// ─────────────────────────────────────────────
+// JOBS
+// ─────────────────────────────────────────────
+
+model Job {
+  id         String    @id @default(uuid())
+  bookId     String?
+  chapterId  String?
+  bullJobId  String?
+  type       String
+  status     JobStatus @default(WAITING)
+  result     Json?
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  book Book? @relation(fields: [bookId], references: [id])
+
+  @@index([status])
+  @@index([bookId])
+  @@map("jobs")
+}
+
+// ─────────────────────────────────────────────
+// AUDIT LOGS
+// ─────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  bookId     String?
+  action     String
+  details    Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+  book Book? @relation(fields: [bookId], references: [id])
+
+  @@index([userId])
+  @@index([bookId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 2 — BUNDLE ENGINE
+// ─────────────────────────────────────────────
+
+model QuestionBank {
+  id             String   @id @default(uuid())
+  bookId         String
+  chapterNumber  Int
+  question       String   @db.Text
+  optionA        String
+  optionB        String
+  optionC        String
+  optionD        String
+  correctOption  String
+  rationale      String   @db.Text
+  difficulty     String
+  boardDomain    String
+  questionType   String
+  createdAt      DateTime @default(now())
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([bookId])
+  @@map("question_banks")
+}
+
+model MnemonicEntry {
+  id           String   @id @default(uuid())
+  bookId       String
+  mnemonic     String
+  expansion    String   @db.Text
+  topic        String
+  bodySystem   String
+  boardDomain  String
+  clinicalNote String   @db.Text
+  createdAt    DateTime @default(now())
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([bookId])
+  @@map("mnemonic_entries")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 3 — BOARD EXAM MAPPINGS
+// ─────────────────────────────────────────────
+
+model BoardExamMapping {
+  id            String   @id @default(uuid())
+  providerType  String
+  providerLabel String
+  country       String
+  boardExam     String
+  boardFullName String
+  examUrl       String?
+  coreClasses   String   @db.Text
+  contentNotes  String?  @db.Text
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([providerType, country])
+  @@index([providerType])
+  @@index([country])
+  @@map("board_exam_mappings")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 6 — BRANDING
+// ─────────────────────────────────────────────
+
+model BrandingConfig {
+  id             String   @id @default(uuid())
+  providerType   String   @unique
+  primaryColor   String
+  secondaryColor String
+  accentColor    String
+  fontPairing    String
+  coverStyle     String
+  seriesName     String
+  aiReasoning    String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  @@map("branding_configs")
+}
+
+// ─────────────────────────────────────────────
+// PHASE 7 — EVIDENCE ALERTS
+// ─────────────────────────────────────────────
+
+model EvidenceAlert {
+  id              String    @id @default(uuid())
+  title           String
+  source          String
+  description     String    @db.Text
+  affectedTracks  String[]
+  affectedBookIds String[]
+  severity        String
+  status          String    @default("pending")
+  detectedAt      DateTime  @default(now())
+  resolvedAt      DateTime?
+
+  @@index([status])
+  @@index([severity])
+  @@map("evidence_alerts")
+}
