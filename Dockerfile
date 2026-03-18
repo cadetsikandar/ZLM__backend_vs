@@ -1,18 +1,10 @@
-# ═══════════════════════════════════════════════════════════════════
-# ZLM Backend — Production Dockerfile
-# Node 20 Alpine | Multi-stage build
-# ═══════════════════════════════════════════════════════════════════
-
-# ── Stage 1: Builder ──────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache openssl openssl-dev python3 make g++
 
 COPY package*.json ./
-
-# Copy prisma schema BEFORE npm ci so postinstall (prisma generate) works
 COPY prisma ./prisma
 
 RUN npm ci
@@ -22,16 +14,13 @@ COPY src ./src
 
 RUN npm run build
 
-# ── Stage 2: Runner ───────────────────────────────────────────────
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache openssl openssl-dev python3 make g++
 
 COPY package*.json ./
-
-# Copy prisma schema BEFORE npm ci so postinstall (prisma generate) works
 COPY prisma ./prisma
 
 RUN npm ci --omit=dev
@@ -46,7 +35,7 @@ USER zlm
 
 EXPOSE 3001
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=5 \
   CMD wget -qO- http://localhost:3001/health || exit 1
 
 CMD ["node", "dist/server.js"]

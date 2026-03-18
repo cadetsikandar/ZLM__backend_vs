@@ -43,15 +43,15 @@ Return ONLY valid JSON:
 
   const saved = await prisma.brandingConfig.create({
     data: {
-  providerType,
-  primaryColor:   cfg.primaryColor   || '#1B3A6B',
-  secondaryColor: cfg.secondaryColor || '#2E5FA3',
-  accentColor:    cfg.accentColor    || '#E8A838',
-  fontPairing:    cfg.fontPairing    || 'Source Sans Pro / Atkinson Hyperlegible',
-  coverStyle:     cfg.coverStyle     || 'clinical',
-  seriesName:     cfg.seriesName     || `ZLM ${providerType} Series`,
-  aiReasoning:    cfg.aiReasoning,
-  },
+      providerType,
+      primaryColor:   cfg.primaryColor   || '#1B3A6B',
+      secondaryColor: cfg.secondaryColor || '#2E5FA3',
+      accentColor:    cfg.accentColor    || '#E8A838',
+      fontPairing:    cfg.fontPairing    || 'Source Sans Pro / Atkinson Hyperlegible',
+      coverStyle:     cfg.coverStyle     || 'clinical',
+      seriesName:     cfg.seriesName     || `ZLM ${providerType} Series`,
+      aiReasoning:    cfg.aiReasoning,
+    },
   });
 
   logger.info('Branding config generated', { providerType, primaryColor: cfg.primaryColor });

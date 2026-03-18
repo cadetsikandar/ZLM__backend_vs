@@ -31,13 +31,13 @@ export async function createPrompt(req: AuthRequest, res: Response): Promise<voi
 
   const prompt = await prisma.prompt.create({
     data: {
-  name:      data.name,
-  type:      data.type,
-  content:   data.content,
-  version,
-  isActive:  true,
-  createdBy: req.user!.name,
-},
+      name:      data.name,
+      type:      data.type,
+      content:   data.content,
+      version,
+      isActive:  true,
+      createdBy: req.user!.name,
+    },
   });
   res.status(201).json({ prompt });
 }

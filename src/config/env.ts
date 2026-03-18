@@ -7,11 +7,11 @@ export const config = {
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
 
   jwt: {
-      secret:        process.env.JWT_SECRET        || 'dev-secret-change-in-production',
-      refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-change-in-production',
-      expiresIn:     '15m' as const,
-      refreshExpiresIn: '7d' as const,
-    },
+    secret:        process.env.JWT_SECRET        || 'dev-secret-change-in-production',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || 'dev-refresh-secret-change-in-production',
+    expiresIn:     '15m',
+    refreshExpiresIn: '7d',
+  },
 
   openai: {
     apiKey:    process.env.OPENAI_API_KEY || '',

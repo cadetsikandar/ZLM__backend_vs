@@ -60,17 +60,12 @@ export async function createBook(req: AuthRequest, res: Response): Promise<void>
   const data  = parsed.data;
   const branch = `track-${data.certificationTrack.toLowerCase()}-book-${data.trackNumber}`;
 
-const book = await prisma.book.create({
+  const book = await prisma.book.create({
     data: {
-      title:               data.title,
-      certificationTrack:  data.certificationTrack,
-      trackNumber:         data.trackNumber,
-      subtitle:            data.subtitle,
-      country:             data.country     || 'USA',
-      boardExam:           data.boardExam,
-      bundleType:          data.bundleType  || BundleType.TEXTBOOK,
-      githubBranch:        branch,
-      s3Folder:            `manuscripts/${data.certificationTrack.toLowerCase()}/book-${data.trackNumber}/`,
+      ...data,
+      bundleType:   data.bundleType || BundleType.TEXTBOOK,
+      githubBranch: branch,
+      s3Folder:     `manuscripts/${data.certificationTrack.toLowerCase()}/book-${data.trackNumber}/`,
     },
   });
 

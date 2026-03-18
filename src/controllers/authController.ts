@@ -19,13 +19,13 @@ const registerSchema = z.object({
 function signAccess(user: { id: string; email: string; role: UserRole; name: string }): string {
   return jwt.sign(
     { sub: user.id, email: user.email, role: user.role, name: user.name },
-    config.jwt.secret as string,
-    { expiresIn: '15m' }
+    config.jwt.secret,
+    { expiresIn: config.jwt.expiresIn }
   );
 }
 
 function signRefresh(userId: string): string {
-  return jwt.sign({ sub: userId }, config.jwt.refreshSecret as string, { expiresIn: '7d' });
+  return jwt.sign({ sub: userId }, config.jwt.refreshSecret, { expiresIn: config.jwt.refreshExpiresIn });
 }
 
 export async function login(req: Request, res: Response): Promise<void> {

@@ -119,12 +119,14 @@ export async function addChapter(req: AuthRequest, res: Response): Promise<void>
 
   const chapter = await prisma.chapter.create({
     data: {
-          bookId:        req.params.bookId,
-          chapterNumber: parsed.data.chapterNumber,
-          title:         parsed.data.title,
-          status:        ChapterStatus.PENDING,
-        },
+      bookId:        req.params.bookId,
+      chapterNumber: parsed.data.chapterNumber,
+      title:         parsed.data.title,
+      status:        ChapterStatus.PENDING,
+    },
   });
+  await prisma.book.update({ where: { id: req.params.bookId }, data: { totalChapters: { increment: 1 } } });
+  res.status(201).json({ chapter });
 }
 
 export async function getEditorFlags(req: AuthRequest, res: Response): Promise<void> {
