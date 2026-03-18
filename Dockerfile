@@ -7,10 +7,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
+COPY package.json ./
 COPY prisma ./prisma
 
-RUN npm ci
+RUN npm install
 
 COPY tsconfig.json ./
 COPY src ./src
