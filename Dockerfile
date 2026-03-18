@@ -2,44 +2,44 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies
+# Install ALL deps (including devDependencies for build)
 COPY package*.json ./
-RUN npm ci --only=production=false
+RUN npm ci
 
 # Copy source and build
 COPY tsconfig.json ./
 COPY src ./src
 COPY prisma ./prisma
 
-RUN npm run db:generate
+# Generate Prisma client and compile TypeScript
+RUN npx prisma generate
 RUN npm run build
 
-# ── Production stage ──────────────────────────────────────────────────────────
+# ── Production stage ───────────────────────────────────────────────────────────
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Install only production deps
+# Copy package files — disable postinstall so prisma generate doesn't run here
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm pkg set scripts.postinstall="echo skip" && npm ci --omit=dev
 
-# Copy built files and prisma
+# Copy built output and Prisma client from builder
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY prisma ./prisma
 
-# Create local storage directory for S3 fallback
+# Local storage fallback for S3
 RUN mkdir -p /app/local-storage/manuscripts
 
-# Non-root user for security
+# Non-root user
 RUN addgroup -S zlm && adduser -S zlm -G zlm
 RUN chown -R zlm:zlm /app
 USER zlm
 
 EXPOSE 3001
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget -qO- http://localhost:3001/health || exit 1
 
