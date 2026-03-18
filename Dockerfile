@@ -2,7 +2,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install ALL deps (including devDependencies for build)
+# Install ALL deps including devDependencies
 COPY package*.json ./
 RUN npm ci
 
@@ -20,9 +20,14 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Copy package files — disable postinstall so prisma generate doesn't run here
+# Copy package files and install production deps only
+# We copy the Prisma client from builder so postinstall (prisma generate) is not needed
 COPY package*.json ./
-RUN npm pkg set scripts.postinstall="echo skip" && npm ci --omit=dev
+
+# Remove postinstall script so prisma generate doesn't run during npm ci
+RUN node -e "const p=require('./package.json'); delete p.scripts.postinstall; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
+
+RUN npm ci --omit=dev
 
 # Copy built output and Prisma client from builder
 COPY --from=builder /app/dist ./dist
