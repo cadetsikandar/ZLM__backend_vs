@@ -1,31 +1,42 @@
+# ═══════════════════════════════════════════════════════════════════
+# ZLM Backend — Production Dockerfile
+# Node 20 Alpine | Multi-stage build
+# ═══════════════════════════════════════════════════════════════════
+
+# ── Stage 1: Builder ──────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+RUN apk add --no-cache python3 make g++
+
 COPY package*.json ./
+
+# Copy prisma schema BEFORE npm ci so postinstall (prisma generate) works
+COPY prisma ./prisma
+
 RUN npm ci
 
 COPY tsconfig.json ./
 COPY src ./src
-COPY prisma ./prisma
 
-RUN npx prisma generate
 RUN npm run build
 
+# ── Stage 2: Runner ───────────────────────────────────────────────
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
+RUN apk add --no-cache python3 make g++
+
 COPY package*.json ./
 
-RUN node -e "const p=require('./package.json'); delete p.scripts.postinstall; require('fs').writeFileSync('./package.json', JSON.stringify(p, null, 2));"
+# Copy prisma schema BEFORE npm ci so postinstall (prisma generate) works
+COPY prisma ./prisma
 
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY prisma ./prisma
 
 RUN mkdir -p /app/local-storage/manuscripts
 
